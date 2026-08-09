@@ -1,69 +1,69 @@
 import os
 import telebot
 
-# استدعاء التوكن ومعرف القناة من متغيرات البيئة في Railway (أو وضعها مباشرة)
-TOKEN = os.environ.get('BOT_TOKEN', 'ضع_توكن_البوت_هنا')
-CHANNEL_ID = os.environ.get(
-    'CHANNEL_ID', '@اسم_قناتك_أو_معرفها'
-)  # مثال: '@reading_community'
+# بيانات البوت والقناة المباشرة
+TOKEN = "8619586974:AAE9iQg0BBfswqIgBH5do4XSm2HqiiZQWIk"
+CHANNEL_ID = "@ReadingCommunity_Library"
 
 bot = telebot.TeleBot(TOKEN)
 
-# قاموس لتخزين الكتب المؤرشفة
+# قاموس بسيط لتخزين الأرشيف (اسم الكتاب -> معرف الرسالة في القناة)
 CHANNEL_BOOKS = {}
 
 
-# أرشفة المنشورات الجديدة القادمة من القناة تلقائياً
+# 1. أرشفة تلقائية لكل ما ينزل في قناتك الخاصة (البوت مشرف هنا)
 @bot.channel_post_handler(func=lambda message: True)
-def archive_channel_posts(message):
-  text_content = message.text or message.caption
-  if text_content:
-    # حفظ النص كاملًا بصيغة صغيرة للبحث المرن
-    cleaned_text = text_content.strip().lower()
-    CHANNEL_BOOKS[cleaned_text] = message.message_id
-
-    # حفظ السطر الأول فقط كعنوان رئيسي أيضاً لسهولة المطابقة
-    first_line = cleaned_text.split('\n')[0]
+def archive_channel_books(message):
+  text = message.text or message.caption
+  if text:
+    clean_text = text.strip().lower()
+    CHANNEL_BOOKS[clean_text] = message.message_id
+    first_line = clean_text.split("\n")[0]
     CHANNEL_BOOKS[first_line] = message.message_id
 
 
-# استقبال طلبات المستخدمين في المحادثة الخاصة
-@bot.message_handler(func=lambda message: message.chat.type == 'private')
-def handle_private_requests(message):
-  query = message.text.strip().lower()
-
-  if query.startswith('/'):
-    if query == '/start':
-      bot.reply_to(
-          message,
-          'أهلاً بك في بوت مكتبة مجتمع القراءة 📚\nأرسل اسم الكتاب الذي تبحث عنه وسأقوم بإحضاره لك فوراً.',
-      )
+# 2. الاستماع لطلبات الأعضاء (في المجموعة يكفي أن يكون عضواً عادياً وفي الخاص)
+@bot.message_handler(func=lambda message: True)
+def handle_book_requests(message):
+  text = message.text
+  if not text:
     return
 
-  # البحث الذكي والفلترة ضمن الكتب المؤرشفة
-  found_msg_id = None
-  for title, msg_id in CHANNEL_BOOKS.items():
-    if query in title:  # إذا كان الاسم المطللوب جزءاً من العنوان المؤرشف
-      found_msg_id = msg_id
-      break
+  text_lower = text.strip().lower()
 
-  if found_msg_id:
-    try:
-      # إرسال أو توجيه الكتاب من القناة إلى الخاص
-      bot.forward_message(
-          chat_id=message.chat.id,
-          from_chat_id=CHANNEL_ID,
-          message_id=found_msg_id,
-      )
-    except Exception as e:
-      bot.reply_to(
-          message,
-          f'❌ حدث خطأ أثناء محاولة جلب الكتاب تأكد من صلاحيات البوت في القناة.',
-      )
-  else:
-    bot.reply_to(message, '❌ عذراً، لم أجد كتاباً بهذا الاسم في أرشيف القناة.')
+  # التحقق من الكلمات المفتاحية المطلوبة
+  prefix = None
+  if text_lower.startswith("اريد كتاب"):
+    prefix = "اريد كتاب"
+  elif text_lower.startswith("اريد رواية"):
+    prefix = "اريد رواية"
+
+  if prefix:
+    # استخراج اسم الكتاب المكتوب بعد الجملة
+    book_name = text_lower.replace(prefix, "").strip()
+
+    if not book_name:
+      return  # إذا لم يكتب اسم الكتاب، لا تفعل شيئاً
+
+    # البحث في الأرشيف
+    found_msg_id = None
+    for title, msg_id in CHANNEL_BOOKS.items():
+      if book_name in title:
+        found_msg_id = msg_id
+        break
+
+    # إذا وجدنا الكتاب نقوم بتحويله، وإذا لم نجد لا نرسل أي شيء نهائياً
+    if found_msg_id:
+      try:
+        bot.forward_message(
+            chat_id=message.chat.id,
+            from_chat_id=CHANNEL_ID,
+            message_id=found_msg_id,
+        )
+      except Exception as e:
+        pass
 
 
-if __name__ == '__main__':
-  print('البوت يعمل الآن بنجاح...')
+if name == "main":
+  print("البوت يعمل الآن ببساطة...")
   bot.infinity_polling()
